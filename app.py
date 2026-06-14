@@ -25,6 +25,10 @@ FLASK_ENV = os.getenv('FLASK_ENV', 'development')
 app.config['ENV'] = FLASK_ENV
 app.config['DEBUG'] = FLASK_ENV != 'production'
 
+# Force HTTPS for URL generation in production
+if FLASK_ENV == 'production':
+    app.config['PREFERRED_URL_SCHEME'] = 'https'
+
 # Session configuration
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 app.config['SESSION_COOKIE_SECURE'] = FLASK_ENV == 'production'
