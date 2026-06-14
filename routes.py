@@ -4,8 +4,8 @@ from flask import Blueprint, jsonify, request, session
 from sqlalchemy.exc import SQLAlchemyError
 
 from database import SessionLocal
-from models import Agent, Execution
-from auth import get_current_user, require_auth
+from models import Agent, ApiKey, Execution
+from auth import get_current_user, require_auth, require_api_key
 import scheduler as scheduler_module
 
 agents_bp = Blueprint('agents', __name__)
@@ -242,7 +242,8 @@ def scheduler_status():
 
 
 @agents_bp.route('/api/claude-skill', methods=['POST'])
-def claude_skill():
+@require_api_key
+def claude_skill(api_user_id):
     data = request.get_json()
 
     if not data:
@@ -252,7 +253,7 @@ def claude_skill():
     if action != 'deploy_agent':
         return jsonify({'success': False, 'error': f'Unknown action: {action}'}), 400
 
-    required_fields = ['user_id', 'agent_code', 'execution_frequency']
+    required_fields = ['agent_code', 'execution_frequency']
     missing = [f for f in required_fields if f not in data]
     if missing:
         return jsonify({'success': False, 'error': f'Missing required fields: {", ".join(missing)}'}), 400
@@ -263,7 +264,7 @@ def claude_skill():
     try:
         session = SessionLocal()
         agent = Agent(
-            user_id=data['user_id'],
+            user_id=api_user_id,
             agent_code=data['agent_code'],
             execution_frequency=data['execution_frequency'],
             status='active'
@@ -289,7 +290,8 @@ def claude_skill():
 
 
 @agents_bp.route('/api/openai-plugin', methods=['POST'])
-def openai_plugin():
+@require_api_key
+def openai_plugin(api_user_id):
     data = request.get_json()
 
     if not data:
@@ -299,7 +301,7 @@ def openai_plugin():
     if action != 'deploy_agent':
         return jsonify({'success': False, 'error': f'Unknown action: {action}'}), 400
 
-    required_fields = ['user_id', 'agent_code', 'execution_frequency']
+    required_fields = ['agent_code', 'execution_frequency']
     missing = [f for f in required_fields if f not in data]
     if missing:
         return jsonify({'success': False, 'error': f'Missing required fields: {", ".join(missing)}'}), 400
@@ -310,7 +312,7 @@ def openai_plugin():
     try:
         session = SessionLocal()
         agent = Agent(
-            user_id=data['user_id'],
+            user_id=api_user_id,
             agent_code=data['agent_code'],
             execution_frequency=data['execution_frequency'],
             status='active'
@@ -333,3 +335,69 @@ def openai_plugin():
     except Exception as e:
         session.close()
         return jsonify({'success': False, 'error': f'Unexpected error: {str(e)}'}), 500
+
+
+@agents_bp.route('/api/keys', methods=['GET'])
+@require_auth
+def list_api_keys():
+    current_user = get_current_user()
+    db_session = SessionLocal()
+    try:
+        keys = db_session.query(ApiKey).filter(ApiKey.user_id == current_user['email']).all()
+        return jsonify([
+            {
+                'api_key': k.api_key,
+                'name': k.name,
+                'created_at': k.created_at.isoformat() if k.created_at else None,
+                'last_used_at': k.last_used_at.isoformat() if k.last_used_at else None,
+            }
+            for k in keys
+        ]), 200
+    finally:
+        db_session.close()
+
+
+@agents_bp.route('/api/keys', methods=['POST'])
+@require_auth
+def create_api_key():
+    current_user = get_current_user()
+    data = request.get_json(silent=True) or {}
+
+    db_session = SessionLocal()
+    try:
+        key = ApiKey(user_id=current_user['email'], name=data.get('name'))
+        db_session.add(key)
+        db_session.commit()
+
+        return jsonify({
+            'api_key': key.api_key,
+            'name': key.name,
+            'created_at': key.created_at.isoformat(),
+        }), 201
+    except SQLAlchemyError as e:
+        db_session.rollback()
+        return jsonify({'error': f'Database error: {str(e)}'}), 500
+    finally:
+        db_session.close()
+
+
+@agents_bp.route('/api/keys/<key_id>', methods=['DELETE'])
+@require_auth
+def revoke_api_key(key_id):
+    current_user = get_current_user()
+    db_session = SessionLocal()
+    try:
+        key = db_session.query(ApiKey).filter(ApiKey.api_key == key_id).first()
+        if not key:
+            return jsonify({'error': 'Not found'}), 404
+        if key.user_id != current_user['email']:
+            return jsonify({'error': 'Forbidden'}), 403
+
+        db_session.delete(key)
+        db_session.commit()
+        return jsonify({'success': True}), 200
+    except SQLAlchemyError as e:
+        db_session.rollback()
+        return jsonify({'error': f'Database error: {str(e)}'}), 500
+    finally:
+        db_session.close()

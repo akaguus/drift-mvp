@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from datetime import datetime
 
@@ -18,6 +19,16 @@ class Agent(Base):
     status = Column(String, nullable=False, default='active')
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ApiKey(Base):
+    __tablename__ = 'api_keys'
+
+    api_key = Column(String, primary_key=True, default=lambda: secrets.token_urlsafe(32))
+    user_id = Column(String, nullable=False)
+    name = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_used_at = Column(DateTime, nullable=True)
 
 
 class Execution(Base):

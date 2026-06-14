@@ -1,5 +1,6 @@
 import os
 import json
+from datetime import datetime
 from functools import wraps
 from urllib.parse import urlencode
 
@@ -54,6 +55,34 @@ def require_auth(f):
         if not user:
             return jsonify({'error': 'Unauthorized'}), 401
         return f(*args, **kwargs)
+    return decorated_function
+
+
+def require_api_key(f):
+    """Decorator for external integrations (Claude/OpenAI) - requires X-API-Key header.
+    Resolves the owning user from the key and passes it to the view as `api_user_id`."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        from database import SessionLocal
+        from models import ApiKey
+
+        api_key = request.headers.get('X-API-Key')
+        if not api_key:
+            return jsonify({'success': False, 'error': 'Missing X-API-Key header'}), 401
+
+        db_session = SessionLocal()
+        try:
+            key_record = db_session.query(ApiKey).filter(ApiKey.api_key == api_key).first()
+            if not key_record:
+                return jsonify({'success': False, 'error': 'Invalid API key'}), 401
+
+            key_record.last_used_at = datetime.utcnow()
+            db_session.commit()
+
+            kwargs['api_user_id'] = key_record.user_id
+            return f(*args, **kwargs)
+        finally:
+            db_session.close()
     return decorated_function
 
 

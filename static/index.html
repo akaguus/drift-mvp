@@ -42,15 +42,53 @@
                     </div>
 
                     <div id="statusMessage" class="status-message"></div>
-
-                    <div class="deploy-links">
-                        <p><strong>Or deploy using:</strong></p>
-                        <ul>
-                            <li><a href="#" onclick="alert('Claude integration coming soon')">Claude Skill</a></li>
-                            <li><a href="#" onclick="alert('OpenAI Plugin coming soon')">OpenAI Plugin</a></li>
-                        </ul>
-                    </div>
                 </form>
+            </section>
+
+            <!-- API Keys / Integrations Section -->
+            <section class="section api-keys-section">
+                <h2>Claude &amp; OpenAI Integrations</h2>
+                <p>Generate an API key to deploy agents from the Claude skill or OpenAI plugin using the
+                   <code>/api/claude-skill</code> and <code>/api/openai-plugin</code> endpoints.</p>
+
+                <div class="button-group">
+                    <button type="button" class="btn btn-primary" onclick="handleCreateApiKey()">Generate New API Key</button>
+                </div>
+
+                <div id="apiKeyResult" class="status-message"></div>
+
+                <div class="table-wrapper">
+                    <table id="apiKeysTable" class="agents-table">
+                        <thead>
+                            <tr>
+                                <th>API Key</th>
+                                <th>Name</th>
+                                <th>Created</th>
+                                <th>Last Used</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="apiKeysList">
+                            <tr>
+                                <td colspan="5" class="loading">Loading API keys...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <details class="integration-help">
+                    <summary>How to use with Claude / OpenAI</summary>
+                    <p>Send a POST request with your API key in the <code>X-API-Key</code> header:</p>
+                    <pre>curl -X POST https://web-production-38f1b.up.railway.app/api/claude-skill \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{
+    "action": "deploy_agent",
+    "agent_code": "print(market_data[\"current_price\"])",
+    "execution_frequency": 60
+  }'</pre>
+                    <p>The same payload works for <code>/api/openai-plugin</code>. The agent will be deployed under your account.</p>
+                </details>
             </section>
 
             <!-- Active Agents Section -->

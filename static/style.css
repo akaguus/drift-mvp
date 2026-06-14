@@ -281,41 +281,30 @@ small {
 }
 
 /* Deploy Links */
-.deploy-links {
-    margin-top: var(--spacing-xl);
+.api-keys-section p {
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-md);
+}
+
+.integration-help {
+    margin-top: var(--spacing-lg);
     padding-top: var(--spacing-lg);
     border-top: 1px solid var(--border-color);
 }
 
-.deploy-links p {
+.integration-help summary {
+    cursor: pointer;
+    font-weight: 600;
     margin-bottom: var(--spacing-md);
-    color: var(--text-secondary);
 }
 
-.deploy-links ul {
-    list-style: none;
-    display: flex;
-    gap: var(--spacing-lg);
-}
-
-.deploy-links li {
-    flex: 1;
-}
-
-.deploy-links a {
-    display: block;
-    padding: var(--spacing-md);
+.integration-help pre {
     background-color: var(--bg-tertiary);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
-    text-align: center;
-    transition: all 0.2s;
-}
-
-.deploy-links a:hover {
-    background-color: var(--primary-color);
-    color: white;
-    text-decoration: none;
+    padding: var(--spacing-md);
+    overflow-x: auto;
+    font-size: 0.85em;
 }
 
 /* Tables */
@@ -515,10 +504,6 @@ tbody tr:hover {
 
     .status-grid {
         grid-template-columns: 1fr;
-    }
-
-    .deploy-links ul {
-        flex-direction: column;
     }
 
     .history-controls {

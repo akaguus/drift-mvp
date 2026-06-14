@@ -19,6 +19,7 @@ async function initializeApp() {
     // Load initial data
     await loadAgents();
     await refreshSchedulerStatus();
+    await loadApiKeys();
 
     // Set up form submission
     document.getElementById('deployForm').addEventListener('submit', handleDeployAgent);
@@ -378,6 +379,114 @@ function handleLogout() {
 // Toggle advanced options (placeholder)
 function toggleAdvanced() {
     alert('Advanced options coming soon!');
+}
+
+// Load API keys
+async function loadApiKeys() {
+    try {
+        const response = await fetch(`${API_BASE}/api/keys`);
+        if (!response.ok) {
+            throw new Error('Failed to load API keys');
+        }
+
+        const keys = await response.json();
+        displayApiKeys(keys);
+    } catch (error) {
+        console.error('Error loading API keys:', error);
+        document.getElementById('apiKeysList').innerHTML = `
+            <tr>
+                <td colspan="5" class="loading">⚠️ Error loading API keys</td>
+            </tr>
+        `;
+    }
+}
+
+// Display API keys in table
+function displayApiKeys(keys) {
+    const tbody = document.getElementById('apiKeysList');
+
+    if (!keys || keys.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="loading">No API keys yet. Generate one to connect Claude or OpenAI.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = keys.map(key => `
+        <tr>
+            <td><code>${truncateText(key.api_key, 12)}</code></td>
+            <td>${key.name || '--'}</td>
+            <td>${key.created_at ? formatDate(key.created_at) : '--'}</td>
+            <td>${key.last_used_at ? formatDate(key.last_used_at) : 'Never'}</td>
+            <td>
+                <div class="action-buttons">
+                    <button class="action-btn" onclick="copyApiKey('${key.api_key}')">Copy</button>
+                    <button class="action-btn btn-danger" onclick="revokeApiKey('${key.api_key}')">Revoke</button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Generate a new API key
+async function handleCreateApiKey() {
+    try {
+        const response = await fetch(`${API_BASE}/api/keys`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to create API key');
+        }
+
+        const resultEl = document.getElementById('apiKeyResult');
+        resultEl.textContent = `✅ New API key created: ${data.api_key} (copy it now, shown only once here)`;
+        resultEl.className = 'status-message show success';
+        setTimeout(() => resultEl.classList.remove('show'), 15000);
+
+        await loadApiKeys();
+    } catch (error) {
+        showStatus(`❌ Error: ${error.message}`, 'error');
+    }
+}
+
+// Copy API key to clipboard
+function copyApiKey(apiKey) {
+    navigator.clipboard.writeText(apiKey).then(() => {
+        showStatus('✅ API key copied to clipboard', 'success');
+    }).catch(() => {
+        showStatus('❌ Could not copy API key', 'error');
+    });
+}
+
+// Revoke an API key
+async function revokeApiKey(apiKey) {
+    if (!confirm('Revoke this API key? Any integrations using it will stop working.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/api/keys/${apiKey}`, {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to revoke API key');
+        }
+
+        showStatus('✅ API key revoked', 'success');
+        await loadApiKeys();
+    } catch (error) {
+        showStatus(`❌ Error: ${error.message}`, 'error');
+    }
 }
 
 // Utility functions
