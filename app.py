@@ -1,11 +1,11 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 
 from database import init_db
 from routes import agents_bp
 from scheduler import Scheduler
 import scheduler as scheduler_module
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', static_url_path='/static')
 
 init_db()
 app.register_blueprint(agents_bp)
@@ -13,6 +13,11 @@ app.register_blueprint(agents_bp)
 scheduler = Scheduler()
 scheduler_module._scheduler_instance = scheduler
 scheduler.start()
+
+
+@app.route('/')
+def index():
+    return send_from_directory('static', 'index.html')
 
 
 @app.route('/health')

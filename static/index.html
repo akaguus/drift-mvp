@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drift Agent Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>Drift Agent Dashboard</h1>
+                <div class="header-right">
+                    <span class="user-info">User: <span id="userId">Loading...</span></span>
+                    <button class="logout-btn" onclick="handleLogout()">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Deploy New Agent Section -->
+            <section class="section deploy-section">
+                <h2>Deploy New Agent</h2>
+                <form id="deployForm" class="deploy-form">
+                    <div class="form-group">
+                        <label for="userId">User ID:</label>
+                        <input type="text" id="deployUserId" placeholder="Enter your user ID" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="agentCode">Agent Code:</label>
+                        <textarea id="agentCode" placeholder="Paste your Python agent code here..." rows="8" required></textarea>
+                        <small>Your code has access to market_data with current_price, volume, and timestamp.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="executionFrequency">Execution Frequency (minutes):</label>
+                        <input type="number" id="executionFrequency" min="1" max="1440" value="60" placeholder="60" required>
+                    </div>
+
+                    <div class="button-group">
+                        <button type="submit" class="btn btn-primary">Deploy Agent</button>
+                        <button type="button" class="btn btn-secondary" onclick="toggleAdvanced()">Advanced Options</button>
+                    </div>
+
+                    <div id="statusMessage" class="status-message"></div>
+
+                    <div class="deploy-links">
+                        <p><strong>Or deploy using:</strong></p>
+                        <ul>
+                            <li><a href="#" onclick="alert('Claude integration coming soon')">Claude Skill</a></li>
+                            <li><a href="#" onclick="alert('OpenAI Plugin coming soon')">OpenAI Plugin</a></li>
+                        </ul>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Active Agents Section -->
+            <section class="section agents-section">
+                <h2>Active Agents</h2>
+                <div class="table-wrapper">
+                    <table id="agentsTable" class="agents-table">
+                        <thead>
+                            <tr>
+                                <th>Agent ID</th>
+                                <th>User ID</th>
+                                <th>Status</th>
+                                <th>Frequency (min)</th>
+                                <th>Last Executed</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="agentsList">
+                            <tr>
+                                <td colspan="6" class="loading">Loading agents...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Execution History Section -->
+            <section class="section history-section">
+                <h2>Execution History</h2>
+                <div class="history-controls">
+                    <label for="selectedAgent">Select Agent:</label>
+                    <select id="selectedAgent" onchange="loadExecutionHistory()">
+                        <option value="">-- Choose an agent --</option>
+                    </select>
+                </div>
+
+                <div class="table-wrapper">
+                    <table id="historyTable" class="history-table">
+                        <thead>
+                            <tr>
+                                <th>Executed At</th>
+                                <th>Result</th>
+                                <th>Trade Executed</th>
+                                <th>Error</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyList">
+                            <tr>
+                                <td colspan="4" class="empty">Select an agent to view execution history</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Scheduler Status Section -->
+            <section class="section scheduler-section">
+                <h2>Scheduler Status</h2>
+                <div class="status-grid">
+                    <div class="status-item">
+                        <span class="label">Running:</span>
+                        <span id="schedulerRunning" class="value">--</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label">Last Check:</span>
+                        <span id="schedulerLastCheck" class="value">--</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label">Agents Executed Today:</span>
+                        <span id="schedulerExecuted" class="value">--</span>
+                    </div>
+                </div>
+                <button class="btn btn-secondary" onclick="refreshSchedulerStatus()">Refresh</button>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2026 Drift. Autonomous Trading Platform.</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
