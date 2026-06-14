@@ -2,11 +2,17 @@ from flask import Flask, jsonify
 
 from database import init_db
 from routes import agents_bp
+from scheduler import Scheduler
+import scheduler as scheduler_module
 
 app = Flask(__name__)
 
 init_db()
 app.register_blueprint(agents_bp)
+
+scheduler = Scheduler()
+scheduler_module._scheduler_instance = scheduler
+scheduler.start()
 
 
 @app.route('/health')

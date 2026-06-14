@@ -5,6 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from database import SessionLocal
 from models import Agent, Execution
+import scheduler as scheduler_module
 
 agents_bp = Blueprint('agents', __name__)
 
@@ -87,3 +88,16 @@ def get_agent(agent_id):
     except Exception as e:
         session.close()
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
+
+@agents_bp.route('/scheduler/status', methods=['GET'])
+def scheduler_status():
+    scheduler = scheduler_module._scheduler_instance
+    if not scheduler:
+        return jsonify({'error': 'Scheduler not initialized'}), 500
+
+    return jsonify({
+        'running': scheduler.running,
+        'last_check': scheduler.last_check.isoformat() if scheduler.last_check else None,
+        'agents_executed_today': scheduler.agents_executed_today
+    }), 200
