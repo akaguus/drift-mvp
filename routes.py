@@ -101,3 +101,50 @@ def scheduler_status():
         'last_check': scheduler.last_check.isoformat() if scheduler.last_check else None,
         'agents_executed_today': scheduler.agents_executed_today
     }), 200
+
+
+@agents_bp.route('/api/claude-skill', methods=['POST'])
+def claude_skill():
+    data = request.get_json()
+
+    if not data:
+        return jsonify({'success': False, 'error': 'No JSON body provided'}), 400
+
+    action = data.get('action')
+    if action != 'deploy_agent':
+        return jsonify({'success': False, 'error': f'Unknown action: {action}'}), 400
+
+    required_fields = ['user_id', 'agent_code', 'execution_frequency']
+    missing = [f for f in required_fields if f not in data]
+    if missing:
+        return jsonify({'success': False, 'error': f'Missing required fields: {", ".join(missing)}'}), 400
+
+    if not data.get('agent_code') or not data['agent_code'].strip():
+        return jsonify({'success': False, 'error': 'agent_code cannot be empty'}), 400
+
+    try:
+        session = SessionLocal()
+        agent = Agent(
+            user_id=data['user_id'],
+            agent_code=data['agent_code'],
+            execution_frequency=data['execution_frequency'],
+            status='active'
+        )
+        session.add(agent)
+        session.commit()
+
+        response = {
+            'success': True,
+            'agent_id': agent.agent_id,
+            'status': agent.status,
+            'message': 'Agent deployed successfully'
+        }
+        session.close()
+        return jsonify(response), 201
+    except SQLAlchemyError as e:
+        session.rollback()
+        session.close()
+        return jsonify({'success': False, 'error': f'Database error: {str(e)}'}), 500
+    except Exception as e:
+        session.close()
+        return jsonify({'success': False, 'error': f'Unexpected error: {str(e)}'}), 500
