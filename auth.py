@@ -22,17 +22,23 @@ def init_oauth(app):
         print("WARNING: Auth0 environment variables not set. Authentication will be disabled.")
         return None
 
-    oauth.init_app(app)
+    try:
+        oauth.init_app(app)
 
-    oauth.register(
-        'auth0',
-        client_id=AUTH0_CLIENT_ID,
-        client_secret=AUTH0_CLIENT_SECRET,
-        server_metadata_url=f'{AUTH0_BASE_URL}/.well-known/openid-configuration',
-        client_kwargs={'scope': 'openid profile email'},
-    )
-
-    return oauth
+        oauth.register(
+            'auth0',
+            client_id=AUTH0_CLIENT_ID,
+            client_secret=AUTH0_CLIENT_SECRET,
+            server_metadata_url=f'{AUTH0_BASE_URL}/.well-known/openid-configuration',
+            client_kwargs={'scope': 'openid profile email'},
+        )
+        print(f"✓ OAuth initialized with Auth0 domain: {AUTH0_DOMAIN}")
+        return oauth
+    except Exception as e:
+        print(f"ERROR initializing OAuth: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 
 def get_current_user():
@@ -60,10 +66,15 @@ def get_auth_routes(app, oauth_instance):
         if not oauth_instance:
             return jsonify({'error': 'Authentication not configured'}), 500
 
-        return oauth_instance.auth0.authorize_redirect(
-            redirect_uri=url_for('callback', _external=True),
-            audience=f'{AUTH0_BASE_URL}/api/v2/'
-        )
+        try:
+            return oauth_instance.auth0.authorize_redirect(
+                redirect_uri=url_for('callback', _external=True)
+            )
+        except Exception as e:
+            print(f"Login error: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'error': f'Login failed: {str(e)}'}), 500
 
     @app.route('/callback')
     def callback():
