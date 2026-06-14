@@ -1,4 +1,5 @@
 import os
+import logging
 
 from flask import Flask, jsonify, send_from_directory
 
@@ -7,6 +8,10 @@ from routes import agents_bp
 from scheduler import Scheduler
 import scheduler as scheduler_module
 
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 
 # Production settings
@@ -14,12 +19,23 @@ FLASK_ENV = os.getenv('FLASK_ENV', 'development')
 app.config['ENV'] = FLASK_ENV
 app.config['DEBUG'] = FLASK_ENV != 'production'
 
-init_db()
+# Initialize database
+try:
+    init_db()
+    logger.info("Database initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize database: {e}")
+
 app.register_blueprint(agents_bp)
 
-scheduler = Scheduler()
-scheduler_module._scheduler_instance = scheduler
-scheduler.start()
+# Initialize scheduler with error handling
+try:
+    scheduler = Scheduler()
+    scheduler_module._scheduler_instance = scheduler
+    scheduler.start()
+    logger.info("Scheduler started successfully")
+except Exception as e:
+    logger.error(f"Failed to start scheduler: {e}")
 
 
 @app.route('/')
