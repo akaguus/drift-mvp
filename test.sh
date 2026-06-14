@@ -90,3 +90,55 @@ curl -s -X POST "$BASE_URL/api/claude-skill" \
     "agent_code": "print(\"test\")",
     "execution_frequency": 60
   }' | python3 -m json.tool
+
+echo ""
+echo "Testing POST /api/openai-plugin with valid deploy_agent action..."
+RESPONSE=$(curl -s -X POST "$BASE_URL/api/openai-plugin" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "deploy_agent",
+    "user_id": "openai_user_123",
+    "agent_code": "if market_data[\"current_price\"] > 150:\n    print(\"Sell signal\")",
+    "execution_frequency": 45
+  }')
+
+echo "Response: $RESPONSE"
+OPENAI_AGENT_ID=$(echo "$RESPONSE" | grep -o '"agent_id":"[^"]*"' | cut -d'"' -f4)
+
+if [ -z "$OPENAI_AGENT_ID" ]; then
+  echo "Failed to deploy agent via OpenAI plugin"
+  exit 1
+fi
+
+echo "Deployed agent via OpenAI plugin with ID: $OPENAI_AGENT_ID"
+echo ""
+
+echo "Testing OpenAI plugin with empty agent_code..."
+curl -s -X POST "$BASE_URL/api/openai-plugin" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "deploy_agent",
+    "user_id": "openai_user_456",
+    "agent_code": "",
+    "execution_frequency": 60
+  }' | python3 -m json.tool
+
+echo ""
+echo "Testing OpenAI plugin with missing required fields..."
+curl -s -X POST "$BASE_URL/api/openai-plugin" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "deploy_agent",
+    "user_id": "openai_user_789"
+  }' | python3 -m json.tool
+
+echo ""
+echo "Testing OpenAI plugin with invalid action..."
+curl -s -X POST "$BASE_URL/api/openai-plugin" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "invalid_action",
+    "user_id": "openai_user_999",
+    "agent_code": "print(\"test\")",
+    "execution_frequency": 60
+  }' | python3 -m json.tool

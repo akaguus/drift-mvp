@@ -1,0 +1,18 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "Drift Agent Deployer",
+  "name_for_model": "drift_agent_deployer",
+  "description_for_human": "Deploy trading agents to Drift cloud platform. Write agent code and configure execution frequency to automate your trading strategies.",
+  "description_for_model": "This plugin allows users to deploy autonomous trading agents to the Drift platform. Agents execute user-provided Python code on a schedule with access to market data.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "http://localhost:5000/api/openai-plugin-spec.json",
+    "is_user_authenticated": false
+  },
+  "logo_url": "https://via.placeholder.com/150?text=Drift",
+  "contact_email": "support@drift.example.com",
+  "legal_info_url": "https://drift.example.com/legal"
+}
