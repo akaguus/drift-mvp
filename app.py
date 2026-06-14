@@ -1,10 +1,12 @@
 from flask import Flask, jsonify
 
 from database import init_db
+from routes import agents_bp
 
 app = Flask(__name__)
 
 init_db()
+app.register_blueprint(agents_bp)
 
 
 @app.route('/health')
