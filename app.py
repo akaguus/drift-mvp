@@ -67,6 +67,19 @@ def health():
     return jsonify({'status': 'ok'})
 
 
+@app.route('/debug/auth-config')
+def debug_auth_config():
+    """Debug endpoint - shows if Auth0 is configured"""
+    return jsonify({
+        'auth0_domain_set': bool(os.getenv('AUTH0_DOMAIN')),
+        'auth0_client_id_set': bool(os.getenv('AUTH0_CLIENT_ID')),
+        'auth0_client_secret_set': bool(os.getenv('AUTH0_CLIENT_SECRET')),
+        'secret_key_set': bool(os.getenv('SECRET_KEY')),
+        'flask_env': os.getenv('FLASK_ENV', 'development'),
+        'oauth_initialized': oauth is not None
+    }), 200
+
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
