@@ -10,6 +10,33 @@ import scheduler as scheduler_module
 agents_bp = Blueprint('agents', __name__)
 
 
+@agents_bp.route('/agents', methods=['GET'])
+def list_agents():
+    try:
+        session = SessionLocal()
+        agents = session.query(Agent).all()
+
+        agents_list = [
+            {
+                'agent_id': agent.agent_id,
+                'user_id': agent.user_id,
+                'status': agent.status,
+                'execution_frequency': agent.execution_frequency,
+                'last_executed': agent.last_executed.isoformat() if agent.last_executed else None,
+                'created_at': agent.created_at.isoformat()
+            }
+            for agent in agents
+        ]
+        session.close()
+        return jsonify(agents_list), 200
+    except SQLAlchemyError as e:
+        session.close()
+        return jsonify({'error': f'Database error: {str(e)}'}), 500
+    except Exception as e:
+        session.close()
+        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
+
 @agents_bp.route('/agents', methods=['POST'])
 def create_agent():
     data = request.get_json()
@@ -83,6 +110,74 @@ def get_agent(agent_id):
         session.close()
         return jsonify(response), 200
     except SQLAlchemyError as e:
+        session.close()
+        return jsonify({'error': f'Database error: {str(e)}'}), 500
+    except Exception as e:
+        session.close()
+        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
+
+@agents_bp.route('/agents/<agent_id>', methods=['PATCH'])
+def update_agent(agent_id):
+    data = request.get_json()
+
+    if not data:
+        return jsonify({'error': 'No JSON body provided'}), 400
+
+    try:
+        session = SessionLocal()
+        agent = session.query(Agent).filter(Agent.agent_id == agent_id).first()
+
+        if not agent:
+            session.close()
+            return jsonify({'error': 'Agent not found'}), 404
+
+        if 'status' in data:
+            valid_statuses = ['active', 'inactive', 'paused']
+            if data['status'] not in valid_statuses:
+                session.close()
+                return jsonify({'error': f'Invalid status. Must be one of: {", ".join(valid_statuses)}'}), 400
+            agent.status = data['status']
+
+        if 'execution_frequency' in data:
+            agent.execution_frequency = data['execution_frequency']
+
+        session.commit()
+
+        response = {
+            'agent_id': agent.agent_id,
+            'status': agent.status,
+            'execution_frequency': agent.execution_frequency,
+            'updated_at': agent.updated_at.isoformat()
+        }
+        session.close()
+        return jsonify(response), 200
+    except SQLAlchemyError as e:
+        session.rollback()
+        session.close()
+        return jsonify({'error': f'Database error: {str(e)}'}), 500
+    except Exception as e:
+        session.close()
+        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
+
+@agents_bp.route('/agents/<agent_id>', methods=['DELETE'])
+def delete_agent(agent_id):
+    try:
+        session = SessionLocal()
+        agent = session.query(Agent).filter(Agent.agent_id == agent_id).first()
+
+        if not agent:
+            session.close()
+            return jsonify({'error': 'Agent not found'}), 404
+
+        session.delete(agent)
+        session.commit()
+
+        session.close()
+        return jsonify({'message': 'Agent deleted successfully'}), 200
+    except SQLAlchemyError as e:
+        session.rollback()
         session.close()
         return jsonify({'error': f'Database error: {str(e)}'}), 500
     except Exception as e:

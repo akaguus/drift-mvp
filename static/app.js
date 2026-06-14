@@ -4,6 +4,7 @@ const API_BASE = window.location.origin;
 // State
 let agents = [];
 let selectedAgentId = null;
+let autoRefreshIntervals = {};
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -24,32 +25,40 @@ async function initializeApp() {
     // Set up form submission
     document.getElementById('deployForm').addEventListener('submit', handleDeployAgent);
 
-    // Auto-refresh every 30 seconds
-    setInterval(async () => {
-        await loadAgents();
+    // Start auto-refresh for agents (every 30 seconds)
+    setInterval(() => loadAgents(), 30000);
+    autoRefreshIntervals.agents = setInterval(() => loadAgents(), 30000);
+
+    // Start auto-refresh for execution history (every 10 seconds if viewing an agent)
+    autoRefreshIntervals.history = setInterval(() => {
         if (selectedAgentId) {
-            await loadExecutionHistory();
+            loadExecutionHistory();
         }
-    }, 30000);
+    }, 10000);
+
+    // Auto-refresh scheduler status every 60 seconds
+    autoRefreshIntervals.scheduler = setInterval(() => refreshSchedulerStatus(), 60000);
 }
 
 // Load all agents
 async function loadAgents() {
     try {
+        showLoading('agentsList', true);
+
         const response = await fetch(`${API_BASE}/agents`);
         if (!response.ok) {
             throw new Error('Failed to load agents');
         }
 
-        // For now, we'll simulate getting all agents
-        // In a real app, we'd have a GET /agents endpoint that returns all agents
-        // For MVP, we'll just show the deployed agents from the form
-        displayAgents([]);
+        const agentsList = await response.json();
+        displayAgents(agentsList);
     } catch (error) {
         console.error('Error loading agents:', error);
         document.getElementById('agentsList').innerHTML = `
             <tr>
-                <td colspan="6" class="loading">Error loading agents. Try refreshing the page.</td>
+                <td colspan="6" class="loading">
+                    <span>⚠️ Error loading agents</span>
+                </td>
             </tr>
         `;
     }
@@ -74,7 +83,7 @@ function displayAgents(agentList) {
     // Build table rows
     const rows = agentList.map(agent => `
         <tr>
-            <td class="agent-id">${truncateId(agent.agent_id)}</td>
+            <td class="agent-id" title="${agent.agent_id}">${truncateId(agent.agent_id)}</td>
             <td>${agent.user_id}</td>
             <td>
                 <span class="status-badge status-${agent.status}">
@@ -100,13 +109,14 @@ function displayAgents(agentList) {
     // Update agent selector
     const agentSelect = document.getElementById('selectedAgent');
     agentSelect.innerHTML = '<option value="">-- Choose an agent --</option>' +
-        agentList.map(agent => `<option value="${agent.agent_id}">${truncateId(agent.agent_id)}</option>`).join('');
+        agentList.map(agent => `<option value="${agent.agent_id}">${truncateId(agent.agent_id)} (${agent.user_id})</option>`).join('');
 }
 
 // Deploy new agent
 async function handleDeployAgent(e) {
     e.preventDefault();
 
+    const deployBtn = e.target.querySelector('button[type="submit"]');
     const userId = document.getElementById('deployUserId').value.trim();
     const agentCode = document.getElementById('agentCode').value.trim();
     const executionFrequency = parseInt(document.getElementById('executionFrequency').value);
@@ -117,6 +127,11 @@ async function handleDeployAgent(e) {
     }
 
     try {
+        // Show loading state
+        deployBtn.disabled = true;
+        const originalText = deployBtn.textContent;
+        deployBtn.textContent = 'Deploying...';
+
         const response = await fetch(`${API_BASE}/agents`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -134,14 +149,18 @@ async function handleDeployAgent(e) {
         }
 
         // Success
-        showStatus(`Agent deployed successfully! ID: ${truncateId(data.agent_id)}`, 'success');
+        showStatus(`✅ Agent deployed successfully! ID: ${truncateId(data.agent_id)}`, 'success');
         document.getElementById('deployForm').reset();
         document.getElementById('deployUserId').value = userId;
 
         // Reload agents after a short delay
         setTimeout(() => loadAgents(), 500);
     } catch (error) {
-        showStatus(`Error: ${error.message}`, 'error');
+        showStatus(`❌ Error: ${error.message}`, 'error');
+    } finally {
+        // Restore button state
+        deployBtn.disabled = false;
+        deployBtn.textContent = originalText;
     }
 }
 
@@ -161,6 +180,8 @@ async function loadExecutionHistory() {
     selectedAgentId = agentId;
 
     try {
+        showLoading('historyList', true);
+
         const response = await fetch(`${API_BASE}/agents/${agentId}`);
         if (!response.ok) {
             throw new Error('Failed to load execution history');
@@ -178,21 +199,28 @@ async function loadExecutionHistory() {
             return;
         }
 
-        const rows = executions.map(execution => `
-            <tr>
-                <td>${formatDate(execution.executed_at)}</td>
-                <td>${truncateText(execution.result || 'N/A', 50)}</td>
-                <td>${execution.trade_executed ? '✓ Yes' : '✗ No'}</td>
-                <td>${execution.error_message ? '⚠️ ' + truncateText(execution.error_message, 50) : '--'}</td>
-            </tr>
-        `).join('');
+        const rows = executions.map(execution => {
+            const isError = execution.error_message && execution.error_message.length > 0;
+            return `
+                <tr class="${isError ? 'error-row' : ''}">
+                    <td>${formatDate(execution.executed_at)}</td>
+                    <td>
+                        <code>${truncateText(execution.result || 'N/A', 50)}</code>
+                    </td>
+                    <td>${execution.trade_executed ? '✅ Yes' : '❌ No'}</td>
+                    <td ${isError ? 'title="' + (execution.error_message || '') + '"' : ''}>
+                        ${execution.error_message ? '⚠️ ' + truncateText(execution.error_message, 40) : '--'}
+                    </td>
+                </tr>
+            `;
+        }).join('');
 
         document.getElementById('historyList').innerHTML = rows;
     } catch (error) {
         console.error('Error loading execution history:', error);
         document.getElementById('historyList').innerHTML = `
             <tr>
-                <td colspan="4" class="loading">Error loading execution history</td>
+                <td colspan="4" class="loading">⚠️ Error loading execution history</td>
             </tr>
         `;
     }
@@ -205,11 +233,32 @@ function viewAgent(agentId) {
     document.querySelector('.history-section').scrollIntoView({ behavior: 'smooth' });
 }
 
-// Toggle agent status
+// Toggle agent status (Pause/Resume)
 async function toggleAgentStatus(agentId, currentStatus) {
     const newStatus = currentStatus === 'active' ? 'paused' : 'active';
-    alert(`Toggle agent status to ${newStatus} - Coming soon!`);
-    // TODO: Implement agent status toggle endpoint
+
+    if (!confirm(`${newStatus === 'paused' ? 'Pause' : 'Resume'} this agent?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/agents/${agentId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to update agent');
+        }
+
+        showStatus(`✅ Agent ${newStatus === 'paused' ? 'paused' : 'resumed'} successfully`, 'success');
+        await loadAgents();
+    } catch (error) {
+        showStatus(`❌ Error: ${error.message}`, 'error');
+    }
 }
 
 // Delete agent
@@ -218,8 +267,35 @@ async function deleteAgent(agentId) {
         return;
     }
 
-    alert('Delete agent - Coming soon!');
-    // TODO: Implement agent deletion endpoint
+    try {
+        const response = await fetch(`${API_BASE}/agents/${agentId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to delete agent');
+        }
+
+        showStatus('✅ Agent deleted successfully', 'success');
+
+        // Clear selection if it was the deleted agent
+        if (selectedAgentId === agentId) {
+            selectedAgentId = null;
+            document.getElementById('selectedAgent').value = '';
+            document.getElementById('historyList').innerHTML = `
+                <tr>
+                    <td colspan="4" class="empty">Select an agent to view execution history</td>
+                </tr>
+            `;
+        }
+
+        await loadAgents();
+    } catch (error) {
+        showStatus(`❌ Error: ${error.message}`, 'error');
+    }
 }
 
 // Refresh scheduler status
@@ -232,14 +308,14 @@ async function refreshSchedulerStatus() {
 
         const data = await response.json();
 
-        document.getElementById('schedulerRunning').textContent = data.running ? '✓ Running' : '✗ Stopped';
+        document.getElementById('schedulerRunning').textContent = data.running ? '✅ Running' : '⛔ Stopped';
         document.getElementById('schedulerLastCheck').textContent = data.last_check
             ? formatDate(data.last_check)
             : 'Never';
-        document.getElementById('schedulerExecuted').textContent = data.agents_executed_today;
+        document.getElementById('schedulerExecuted').textContent = data.agents_executed_today || 0;
     } catch (error) {
         console.error('Error loading scheduler status:', error);
-        document.getElementById('schedulerRunning').textContent = 'Error';
+        document.getElementById('schedulerRunning').textContent = '⚠️ Error';
     }
 }
 
@@ -253,6 +329,20 @@ function showStatus(message, type) {
     setTimeout(() => {
         statusEl.classList.remove('show');
     }, 5000);
+}
+
+// Show loading indicator
+function showLoading(elementId, show) {
+    const element = document.getElementById(elementId);
+    if (show && element.innerHTML.indexOf('Loading') === -1) {
+        element.innerHTML = `
+            <tr>
+                <td colspan="100" class="loading">
+                    <span class="spinner"></span> Loading...
+                </td>
+            </tr>
+        `;
+    }
 }
 
 // Handle logout
