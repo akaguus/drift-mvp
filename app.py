@@ -1,12 +1,18 @@
 import os
 import logging
+from datetime import timedelta
 
 from flask import Flask, jsonify, send_from_directory
+from dotenv import load_dotenv
 
 from database import init_db
 from routes import agents_bp
 from scheduler import Scheduler
+from auth import init_oauth, get_auth_routes
 import scheduler as scheduler_module
+
+# Load environment variables
+load_dotenv()
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -18,6 +24,19 @@ app = Flask(__name__, static_folder='static', static_url_path='/static')
 FLASK_ENV = os.getenv('FLASK_ENV', 'development')
 app.config['ENV'] = FLASK_ENV
 app.config['DEBUG'] = FLASK_ENV != 'production'
+
+# Session configuration
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.config['SESSION_COOKIE_SECURE'] = FLASK_ENV == 'production'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
+
+# Initialize OAuth/Auth0
+oauth = init_oauth(app)
+
+# Register auth routes
+auth_funcs = get_auth_routes(app, oauth)
 
 # Initialize database
 try:

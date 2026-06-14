@@ -5,6 +5,7 @@ const API_BASE = window.location.origin;
 let agents = [];
 let selectedAgentId = null;
 let autoRefreshIntervals = {};
+let currentUser = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -12,11 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function initializeApp() {
-    // Set user ID from localStorage or generate a temporary one
-    const userId = localStorage.getItem('userId') || 'user_' + Date.now();
-    localStorage.setItem('userId', userId);
-    document.getElementById('userId').textContent = userId;
-    document.getElementById('deployUserId').value = userId;
+    // Get authenticated user from Flask session
+    await loadUserProfile();
 
     // Load initial data
     await loadAgents();
@@ -38,6 +36,33 @@ async function initializeApp() {
 
     // Auto-refresh scheduler status every 60 seconds
     autoRefreshIntervals.scheduler = setInterval(() => refreshSchedulerStatus(), 60000);
+}
+
+// Load user profile from Flask session
+async function loadUserProfile() {
+    try {
+        const response = await fetch(`${API_BASE}/api/me`);
+        if (response.status === 401) {
+            // Not authenticated - redirect to login
+            window.location.href = `${API_BASE}/login`;
+            return;
+        }
+
+        if (!response.ok) {
+            throw new Error('Failed to load user profile');
+        }
+
+        currentUser = await response.json();
+        document.getElementById('userId').textContent = currentUser.email;
+        console.log('✓ User authenticated:', currentUser.email);
+    } catch (error) {
+        console.error('Error loading user profile:', error);
+        // In development without Auth0, allow anonymous access
+        if (window.location.hostname === 'localhost') {
+            currentUser = { email: 'dev-user@example.com', name: 'Dev User' };
+            document.getElementById('userId').textContent = 'Development Mode';
+        }
+    }
 }
 
 // Load all agents
@@ -117,11 +142,10 @@ async function handleDeployAgent(e) {
     e.preventDefault();
 
     const deployBtn = e.target.querySelector('button[type="submit"]');
-    const userId = document.getElementById('deployUserId').value.trim();
     const agentCode = document.getElementById('agentCode').value.trim();
     const executionFrequency = parseInt(document.getElementById('executionFrequency').value);
 
-    if (!userId || !agentCode || !executionFrequency) {
+    if (!agentCode || !executionFrequency) {
         showStatus('All fields are required', 'error');
         return;
     }
@@ -136,7 +160,6 @@ async function handleDeployAgent(e) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                user_id: userId,
                 agent_code: agentCode,
                 execution_frequency: executionFrequency
             })
@@ -151,7 +174,6 @@ async function handleDeployAgent(e) {
         // Success
         showStatus(`✅ Agent deployed successfully! ID: ${truncateId(data.agent_id)}`, 'success');
         document.getElementById('deployForm').reset();
-        document.getElementById('deployUserId').value = userId;
 
         // Reload agents after a short delay
         setTimeout(() => loadAgents(), 500);
