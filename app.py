@@ -26,8 +26,7 @@ app.config['ENV'] = FLASK_ENV
 app.config['DEBUG'] = FLASK_ENV != 'production'
 
 # Force HTTPS for URL generation in production
-if FLASK_ENV == 'production':
-    app.config['PREFERRED_URL_SCHEME'] = 'https'
+app.config['PREFERRED_URL_SCHEME'] = 'https' if FLASK_ENV == 'production' else 'http'
 
 # Session configuration
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -35,11 +34,6 @@ app.config['SESSION_COOKIE_SECURE'] = FLASK_ENV == 'production'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
-
-# Trust proxy headers for HTTPS (Railway uses X-Forwarded-Proto)
-if FLASK_ENV == 'production':
-    from werkzeug.proxy_fix import ProxyFix
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 # Initialize OAuth/Auth0
 oauth = init_oauth(app)
