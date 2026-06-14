@@ -67,8 +67,14 @@ def get_auth_routes(app, oauth_instance):
             return jsonify({'error': 'Authentication not configured'}), 500
 
         try:
+            # Build callback URL with correct scheme for production
+            callback_url = url_for('callback', _external=True)
+            if app.config['ENV'] == 'production':
+                # Force HTTPS in production (Railway uses X-Forwarded-Proto)
+                callback_url = callback_url.replace('http://', 'https://')
+
             return oauth_instance.auth0.authorize_redirect(
-                redirect_uri=url_for('callback', _external=True)
+                redirect_uri=callback_url
             )
         except Exception as e:
             print(f"Login error: {e}")
@@ -107,8 +113,13 @@ def get_auth_routes(app, oauth_instance):
 
         # Redirect to Auth0 logout (optional, but recommended)
         if AUTH0_DOMAIN:
+            return_url = url_for('index', _external=True)
+            if app.config['ENV'] == 'production':
+                # Force HTTPS in production (Railway uses X-Forwarded-Proto)
+                return_url = return_url.replace('http://', 'https://')
+
             logout_url = urlencode({
-                'returnTo': url_for('index', _external=True),
+                'returnTo': return_url,
                 'client_id': AUTH0_CLIENT_ID
             })
             return redirect(f'{AUTH0_BASE_URL}/v2/logout?{logout_url}')
