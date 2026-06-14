@@ -75,8 +75,6 @@ def get_auth_routes(app, oauth_instance):
             if env == 'production':
                 callback_url = callback_url.replace('http://', 'https://')
 
-            print(f"[DEBUG] FLASK_ENV={env}, callback_url={callback_url}")
-
             return oauth_instance.auth0.authorize_redirect(
                 redirect_uri=callback_url
             )
@@ -118,8 +116,10 @@ def get_auth_routes(app, oauth_instance):
         # Redirect to Auth0 logout (optional, but recommended)
         if AUTH0_DOMAIN:
             return_url = url_for('index', _external=True)
-            if app.config['ENV'] == 'production':
-                # Force HTTPS in production (Railway uses X-Forwarded-Proto)
+            env = os.getenv('FLASK_ENV', 'development')
+
+            # Force HTTPS in production (Railway uses X-Forwarded-Proto)
+            if env == 'production':
                 return_url = return_url.replace('http://', 'https://')
 
             logout_url = urlencode({
