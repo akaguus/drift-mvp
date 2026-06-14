@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask, jsonify, send_from_directory
 
 from database import init_db
@@ -6,6 +8,11 @@ from scheduler import Scheduler
 import scheduler as scheduler_module
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
+
+# Production settings
+FLASK_ENV = os.getenv('FLASK_ENV', 'development')
+app.config['ENV'] = FLASK_ENV
+app.config['DEBUG'] = FLASK_ENV != 'production'
 
 init_db()
 app.register_blueprint(agents_bp)
@@ -26,4 +33,5 @@ def health():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    port = int(os.getenv('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
